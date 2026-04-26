@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanl Escape</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #060610;
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+    }
+
+    /* ── SCREENS ─────────────────────────────────────────────── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .screen.active {
+      display: flex;
+      animation: fadeIn 0.45s ease;
+    }
+    @keyframes fadeIn    { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
+    @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:.55} }
+    @keyframes floatUp   { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+    @keyframes logoGlow  { 0%,100%{filter:drop-shadow(0 0 24px #1dab62) drop-shadow(0 0 6px #1dab62)}
+                           50%{filter:drop-shadow(0 0 56px #00ff99) drop-shadow(0 0 20px #1dab62)} }
+    @keyframes borderPulse { 0%,100%{box-shadow:0 0 16px rgba(29,171,98,.4)} 50%{box-shadow:0 0 36px rgba(29,171,98,.9)} }
+
+    /* ── BACKGROUND DECORATIONS ─────────────────────────────── */
+    .bg-grid {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(29,171,98,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(29,171,98,.045) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+    .bg-glow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 18% 50%, rgba(29,171,98,.07) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 82% 18%, rgba(0,160,255,.05) 0%, transparent 55%),
+        radial-gradient(ellipse 35% 50% at 70% 85%, rgba(160,0,255,.04) 0%, transparent 60%);
+    }
+    .screen > * { position: relative; z-index: 1; }
+
+    /* ── BUTTON ─────────────────────────────────────────────── */
+    .btn {
+      padding: 13px 44px;
+      border: 2px solid #1dab62;
+      background: transparent;
+      color: #1dab62;
+      font-size: .95rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      clip-path: polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+      transition: background .22s, color .22s, box-shadow .22s;
+    }
+    .btn:hover {
+      background: #1dab62;
+      color: #060610;
+      box-shadow: 0 0 28px rgba(29,171,98,.7);
+    }
+
+    /* ── INTRO ───────────────────────────────────────────────── */
+    .building-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .building-logo {
+      width: 230px;
+      height: auto;
+      animation: logoGlow 3s ease-in-out infinite;
+      display: block;
+    }
+    .building-logo-placeholder {
+      width: 230px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #1dab62;
+      text-shadow: 0 0 30px rgba(29,171,98,.9);
+      animation: logoGlow 3s ease-in-out infinite;
+    }
+    .building-base {
+      width: 270px;
+      height: 10px;
+      background: linear-gradient(90deg, transparent, #1dab62 30%, #1dab62 70%, transparent);
+      box-shadow: 0 0 22px rgba(29,171,98,.8), 0 4px 18px rgba(29,171,98,.4);
+      margin-top: -2px;
+    }
+    .building-base2 {
+      width: 320px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(29,171,98,.4), transparent);
+      margin-top: 3px;
+    }
+
+    .intro-title {
+      font-size: 3.6rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 10px;
+      background: linear-gradient(135deg, #1dab62 25%, #00ffaa 65%, #1dab62);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 14px 0 4px;
+    }
+    .intro-sub {
+      font-size: .8rem;
+      color: #445;
+      text-transform: uppercase;
+      letter-spacing: 7px;
+      margin-bottom: 44px;
+    }
+    .select-label {
+      font-size: .78rem;
+      color: #445;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 22px;
+    }
+
+    .characters { display: flex; gap: 22px; }
+
+    .char-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 26px 18px;
+      border: 1px solid #182418;
+      background: rgba(29,171,98,.03);
+      cursor: pointer;
+      transition: border-color .28s, transform .28s, box-shadow .28s, background .28s;
+      clip-path: polygon(12px 0%,100% 0%,calc(100% - 12px) 100%,0% 100%);
+    }
+    .char-card:hover {
+      border-color: #1dab62;
+      background: rgba(29,171,98,.08);
+      transform: translateY(-10px);
+      box-shadow: 0 18px 36px rgba(29,171,98,.18), 0 0 0 1px #1dab62;
+    }
+    .char-img {
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #1a2a1a;
+      background: #0c180e;
+      transition: border-color .28s, box-shadow .28s;
+      display: block;
+    }
+    .char-card:hover .char-img {
+      border-color: #1dab62;
+      box-shadow: 0 0 24px rgba(29,171,98,.6);
+    }
+    .char-name {
+      margin-top: 13px;
+      font-size: .82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #889;
+      transition: color .28s;
+    }
+    .char-card:hover .char-name { color: #1dab62; }
+
+    /* ── LEVEL SCREEN ────────────────────────────────────────── */
+    #screen-level {
+      padding: 0;
+      justify-content: flex-start;
+      background: #060610;
+    }
+    #game-canvas { display: block; }
+
+    #game-over-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(6,6,16,.9);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      backdrop-filter: blur(5px);
+    }
+    #game-over-overlay.active { display: flex; animation: fadeIn .35s ease; }
+
+    .go-title {
+      font-size: 2.8rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      color: #ff2222;
+      text-shadow: 0 0 40px rgba(255,34,34,.8), 0 0 80px rgba(255,34,34,.3);
+      margin-bottom: 8px;
+      animation: pulse 1.4s infinite;
+    }
+    .go-sub {
+      font-size: .9rem;
+      color: #554;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 50px;
+    }
+
+    /* ── LEVEL WIN ───────────────────────────────────────────── */
+    .lw-label {
+      font-size: .8rem;
+      color: #445;
+      text-transform: uppercase;
+      letter-spacing: 5px;
+      margin-bottom: 14px;
+    }
+    .lw-name {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: #1dab62;
+      text-shadow: 0 0 40px rgba(29,171,98,.8);
+      margin-bottom: 10px;
+    }
+    .lw-exclaim {
+      font-size: .85rem;
+      color: #334;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 48px;
+    }
+
+    /* ── RESCUE SCREEN ───────────────────────────────────────── */
+    .rescue-msg {
+      font-size: 1.25rem;
+      color: #bbc;
+      text-align: center;
+      max-width: 580px;
+      line-height: 1.75;
+      margin-bottom: 46px;
+    }
+    .rescue-msg .hl { color: #1dab62; font-weight: 700; }
+
+    /* ── FINAL WIN ───────────────────────────────────────────── */
+    .fw-title {
+      font-size: 2.3rem;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.35;
+      background: linear-gradient(135deg, #1dab62, #00ffaa 50%, #ffcc00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 56px;
+      animation: pulse 2.2s infinite;
+      max-width: 680px;
+    }
+    .fw-chars { display: flex; gap: 52px; margin-bottom: 56px; }
+    .fw-char { display: flex; flex-direction: column; align-items: center; }
+    .fw-char img {
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #1dab62;
+      box-shadow: 0 0 30px rgba(29,171,98,.6), 0 0 60px rgba(29,171,98,.25);
+      background: #0c180e;
+      animation: floatUp 2s ease-in-out infinite alternate;
+    }
+    .fw-char:nth-child(2) img { animation-delay: .45s; }
+    .fw-char:nth-child(3) img { animation-delay: .9s; }
+    .fw-name {
+      margin-top: 14px;
+      font-weight: 700;
+      color: #1dab62;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: .82rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <!-- ═══════════ INTRO ═══════════ -->
+  <div id="screen-intro" class="screen active">
+    <div class="building-wrap">
+      <img src="fanl_logo.png" alt="Fanl" class="building-logo"
+           onerror="this.style.display='none';document.getElementById('logo-placeholder').style.display='flex'">
+      <div id="logo-placeholder" class="building-logo-placeholder" style="display:none">FANL</div>
+      <div class="building-base"></div>
+      <div class="building-base2"></div>
+    </div>
+    <h1 class="intro-title">Fanl Escape</h1>
+    <p class="intro-sub">Unikni z Fanlu</p>
+    <p class="select-label">Vyber svou postavu</p>
+    <div class="characters">
+      <div class="char-card" onclick="selectCharacter(0)">
+        <img src="player1.png" alt="Maruška" class="char-img">
+        <span class="char-name">Maruška</span>
+      </div>
+      <div class="char-card" onclick="selectCharacter(1)">
+        <img src="player2.png" alt="Šárka" class="char-img">
+        <span class="char-name">Šárka</span>
+      </div>
+      <div class="char-card" onclick="selectCharacter(2)">
+        <img src="player3.png" alt="Mike" class="char-img">
+        <span class="char-name">Mike</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ LEVEL ═══════════ -->
+  <div id="screen-level" class="screen">
+    <canvas id="game-canvas"></canvas>
+    <div id="game-over-overlay">
+      <div class="go-title">Nedokázal jsi se dostat z Fanlu</div>
+      <div class="go-sub">Tasky tě pohřbily</div>
+      <button class="btn" onclick="retryLevel()">Zkusit znovu</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ LEVEL WIN ═══════════ -->
+  <div id="screen-level-win" class="screen">
+    <p class="lw-label">Úspěšně jsi unikl bossovi</p>
+    <h2 class="lw-name" id="lw-boss-name"></h2>
+    <p class="lw-exclaim" id="lw-exclaim"></p>
+    <button class="btn" onclick="continueAfterWin()">Pokračovat</button>
+  </div>
+
+  <!-- ═══════════ RESCUE ═══════════ -->
+  <div id="screen-rescue" class="screen">
+    <p class="rescue-msg" id="rescue-msg"></p>
+    <div class="characters" id="rescue-chars"></div>
+  </div>
+
+  <!-- ═══════════ FINAL WIN ═══════════ -->
+  <div id="screen-final-win" class="screen">
+    <h1 class="fw-title">Gratulujeme!<br>Podařilo se uniknout všem z Fanlu!</h1>
+    <div class="fw-chars" id="fw-chars"></div>
+    <button class="btn" onclick="restartGame()">Hrát znovu</button>
+  </div>
+
+  <script>
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════
+  //  CONFIG
+  // ═══════════════════════════════════════════════════════════
+  const CHARS = [
+    { name: 'Maruška', acc: 'Marušku', img: 'player1.png' },
+    { name: 'Šárka',   acc: 'Šárku',   img: 'player2.png' },
+    { name: 'Mike',    acc: 'Mika',    img: 'player3.png' },
+  ];
+
+  const BOSSES = [
+    { name: 'Kuba', dative: 'Kubovi', img: 'boss1.png', txt: 'boss1.txt' },
+    { name: 'Vítek', dative: 'Vítkovi', img: 'boss2.png', txt: 'boss2.txt' },
+  ];
+
+  const FALLBACK = {
+    1: ['Udělej report do zítra!','Přijď na meeting v 7:00','Odpověz na emaily ihned!',
+        'Zkontroluj 200stránkový spreadsheet','Prezentace za 10 minut!','Potřebuji to TEĎKA!',
+        'Přečti si celý manuál','Urgentní úkol – hned!','Standup v 8:00 – povinný!','Kde je ten report?!'],
+    2: ['Zůstaň do půlnoci!','To není dost motivace!','Snižte náklady o 30%!',
+        'Týmbuilding o víkendu!','Nová strategie každý týden','Kde je ROI za Q3?!',
+        'Přepiš projekt do pátku','Meeting ve 20:00 – povinný!','KPI dashboard TEĎKA!','Dovolenkový plán? Zrušte ho!'],
+  };
+
+  const COLORS_COOL = ['#00aaff','#aa33ff','#33ccaa','#0088dd'];
+  const COLORS_MID  = ['#ff9900','#ffcc00','#ff6600','#ffaa00'];
+  const COLORS_HOT  = ['#ff2222','#ff0066','#ff4400','#ff1155'];
+
+  // ═══════════════════════════════════════════════════════════
+  //  GAME STATE
+  // ═══════════════════════════════════════════════════════════
+  let gs = {};
+  function resetGS() {
+    gs = { charIdx: 0, played: [], rescued: 0, level: 1 };
+  }
+
+  // Canvas / render
+  let canvas, ctx;
+  let player = {};
+  let taskTexts = { 1: null, 2: null }; // null = not loaded yet
+  let tasks = [];
+  let lives, timeLeft, gameRunning;
+  let keys = {};
+  let animId = null, timerId = null;
+  let lastTime = 0, lastSpawn = 0;
+  let spawnMs = 2200, taskSpd = 2;
+  let lastHitTs = 0, shakeUntil = 0;
+  let playerImg = null, bossImg = null;
+
+  // ═══════════════════════════════════════════════════════════
+  //  SCREENS
+  // ═══════════════════════════════════════════════════════════
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  TASK LOADING
+  // ═══════════════════════════════════════════════════════════
+  async function loadTasks(lvl) {
+    if (taskTexts[lvl]) return;           // already cached
+    try {
+      const r = await fetch(BOSSES[lvl - 1].txt);
+      if (!r.ok) throw 0;
+      const lines = (await r.text()).split('\n').map(s => s.trim()).filter(Boolean);
+      taskTexts[lvl] = lines.length ? lines : FALLBACK[lvl];
+    } catch {
+      taskTexts[lvl] = FALLBACK[lvl];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  CHARACTER SELECTION
+  // ═══════════════════════════════════════════════════════════
+  function selectCharacter(idx) {
+    resetGS();
+    gs.charIdx = idx;
+    gs.played  = [idx];
+    gs.level   = 1;
+    startLevel();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  START LEVEL
+  // ═══════════════════════════════════════════════════════════
+  async function startLevel() {
+    await loadTasks(gs.level);
+
+    canvas = document.getElementById('game-canvas');
+    ctx    = canvas.getContext('2d');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    lives       = 3;
+    timeLeft    = 20;
+    tasks       = [];
+    gameRunning = true;
+    lastSpawn   = 1300;
+    spawnMs     = 1650;
+    taskSpd     = 2.2;
+    lastHitTs   = 0;
+    shakeUntil  = 0;
+
+    const PS = 78;
+    player = { x: canvas.width / 2 - PS / 2, y: canvas.height - PS - 44, w: PS, h: PS, spd: 10 };
+
+    playerImg = new Image(); playerImg.src = CHARS[gs.charIdx].img;
+    bossImg   = new Image(); bossImg.src   = BOSSES[gs.level - 1].img;
+
+    document.getElementById('game-over-overlay').classList.remove('active');
+    show('screen-level');
+
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      if (!gameRunning) return;
+      timeLeft--;
+      if (timeLeft <= 0) { timeLeft = 0; winLevel(); }
+    }, 1000);
+
+    cancelAnimationFrame(animId);
+    lastTime = performance.now();
+    animId = requestAnimationFrame(loop);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  GAME LOOP
+  // ═══════════════════════════════════════════════════════════
+  function loop(ts) {
+    if (!gameRunning) return;
+    const dt = Math.min(ts - lastTime, 50);
+    lastTime = ts;
+
+    // Player movement
+    const move = player.spd * (dt / 16);
+    if (keys['ArrowLeft']  || keys['a'] || keys['A'])
+      player.x = Math.max(canvas.width * .25, player.x - move);
+    if (keys['ArrowRight'] || keys['d'] || keys['D'])
+      player.x = Math.min(canvas.width * .75 - player.w, player.x + move);
+
+    // Spawn tasks
+    lastSpawn += dt;
+    if (lastSpawn >= spawnMs) {
+      spawnTask(ts);
+      lastSpawn = 0;
+      spawnMs  = Math.max(460, spawnMs - 42);
+      taskSpd  = Math.min(7, taskSpd + 0.16);
+    }
+
+    // Move & cull tasks
+    for (let i = tasks.length - 1; i >= 0; i--) {
+      tasks[i].y += tasks[i].spd * (dt / 16);
+      if (tasks[i].y > canvas.height + 24) tasks.splice(i, 1);
+    }
+
+    // Collision (800 ms cooldown to avoid rapid life loss)
+    if (ts - lastHitTs > 800) {
+      for (let i = tasks.length - 1; i >= 0; i--) {
+        const t = tasks[i];
+        if (t.x < player.x + player.w && t.x + t.w > player.x &&
+            t.y < player.y + player.h && t.y + t.h > player.y) {
+          tasks.splice(i, 1);
+          lives--;
+          lastHitTs  = ts;
+          shakeUntil = ts + 380;
+          if (lives <= 0) { lives = 0; gameOver(); return; }
+          break;
+        }
+      }
+    }
+
+    draw(ts);
+    animId = requestAnimationFrame(loop);
+  }
+
+  // ── Spawn one task ─────────────────────────────────────────
+  function spawnTask(ts) {
+    const texts = taskTexts[gs.level];
+    const txt   = texts[Math.floor(Math.random() * texts.length)];
+    const progress = (20 - timeLeft) / 20;                  // 0 → 1 over the level
+    const pool = progress > .65 ? COLORS_HOT : progress > .3 ? COLORS_MID : COLORS_COOL;
+    const color = pool[Math.floor(Math.random() * pool.length)];
+    const tw = Math.min(Math.max(txt.length * 11 + 12, 150), 320);
+    const th = 46;
+    tasks.push({
+      x: canvas.width * .25 + Math.random() * (canvas.width * .5 - tw),
+      y: -th - 6,
+      w: tw, h: th,
+      spd: taskSpd + Math.random() * 1.3,
+      color, txt,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  DRAW
+  // ═══════════════════════════════════════════════════════════
+  function draw(ts) {
+    const shaking = ts < shakeUntil;
+    if (shaking) {
+      ctx.save();
+      ctx.translate((Math.random() - .5) * 11, (Math.random() - .5) * 7);
+    }
+
+    // Play area bounds (same width as progress bar = 50% of screen)
+    const pAX = canvas.width * .25;
+    const pAW = canvas.width * .5;
+
+    // Background
+    ctx.fillStyle = '#060610';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Dark overlay outside play area
+    ctx.fillStyle = 'rgba(0,0,0,.72)';
+    ctx.fillRect(0, 0, pAX, canvas.height);
+    ctx.fillRect(pAX + pAW, 0, pAX, canvas.height);
+
+    // Subtle grid (only inside play area)
+    ctx.save();
+    ctx.beginPath(); ctx.rect(pAX, 0, pAW, canvas.height); ctx.clip();
+    ctx.strokeStyle = 'rgba(29,171,98,.07)';
+    ctx.lineWidth = 1;
+    for (let x = pAX; x < pAX + pAW; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+    for (let y = 0; y < canvas.height; y += 60) { ctx.beginPath(); ctx.moveTo(pAX,y); ctx.lineTo(pAX+pAW,y); ctx.stroke(); }
+    ctx.restore();
+
+    // Neon corridor walls
+    ctx.strokeStyle = '#1dab62';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#1dab62';
+    ctx.shadowBlur = 18;
+    ctx.beginPath(); ctx.moveTo(pAX, 0); ctx.lineTo(pAX, canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pAX + pAW, 0); ctx.lineTo(pAX + pAW, canvas.height); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Boss watermark
+    if (bossImg && bossImg.complete && bossImg.naturalWidth) {
+      const bw = Math.min(pAW * .9, 400);
+      ctx.globalAlpha = .13;
+      ctx.drawImage(bossImg, canvas.width/2 - bw/2, canvas.height/2 - bw/2, bw, bw);
+      ctx.globalAlpha = 1;
+    }
+
+    // ── HUD ───────────────────────────────────────────────────
+    // Boss name
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px Segoe UI, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.13)';
+    ctx.fillText(BOSSES[gs.level - 1].name.toUpperCase(), canvas.width/2, 34);
+    ctx.font = '11px Segoe UI';
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.fillText('LEVEL ' + gs.level, canvas.width/2, 52);
+    ctx.restore();
+
+    // Timer (large central, fades as bg element)
+    const pct   = timeLeft / 20;
+    const tColor = timeLeft <= 5 ? '#ff2222' : timeLeft <= 10 ? '#ff9900' : '#ffdd00';
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 72px Segoe UI, sans-serif';
+    ctx.fillStyle = tColor;
+    ctx.shadowColor = tColor;
+    ctx.shadowBlur = 36;
+    ctx.fillText(timeLeft, canvas.width/2, canvas.height/2 + 28);
+    ctx.shadowBlur = 0;
+    ctx.font = '11px Segoe UI';
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillText('SEKUND DO ÚNIKU', canvas.width/2, canvas.height/2 + 50);
+    ctx.restore();
+
+    // Progress bar (top)
+    const barW = canvas.width * .5;
+    const barX = canvas.width/2 - barW/2;
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.fillRect(barX, 64, barW, 4);
+    ctx.fillStyle = tColor;
+    ctx.shadowColor = tColor;
+    ctx.shadowBlur = 8;
+    ctx.fillRect(barX, 64, barW * pct, 4);
+    ctx.shadowBlur = 0;
+
+    // Lives (hearts)
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.font = '28px serif';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle   = i < lives ? '#ff2222' : '#1a0a0a';
+      ctx.shadowColor = i < lives ? '#ff2222' : 'transparent';
+      ctx.shadowBlur  = i < lives ? 14 : 0;
+      ctx.fillText('♥', 22 + i * 42, 50);
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ── TASKS ─────────────────────────────────────────────────
+    tasks.forEach(t => {
+      ctx.save();
+      ctx.shadowColor = t.color;
+      ctx.shadowBlur  = 20;
+      // Fill
+      ctx.fillStyle = t.color + 'bb';
+      rr(ctx, t.x, t.y, t.w, t.h, 7);
+      ctx.fill();
+      // Border
+      ctx.strokeStyle = t.color;
+      ctx.lineWidth   = 2;
+      rr(ctx, t.x, t.y, t.w, t.h, 7);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Text
+      ctx.fillStyle    = '#fff';
+      ctx.font         = 'bold 20px Segoe UI, sans-serif';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      wrapText(ctx, t.txt, t.x + t.w/2, t.y + t.h/2, t.w - 10);
+      ctx.restore();
+    });
+
+    // ── PLAYER ────────────────────────────────────────────────
+    const cx = player.x + player.w/2, cy = player.y + player.h/2, cr = player.w/2;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.clip();
+    if (playerImg && playerImg.complete && playerImg.naturalWidth) {
+      ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+    } else {
+      ctx.fillStyle = '#1dab62';
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+      ctx.fillStyle  = '#fff';
+      ctx.font       = 'bold 28px Segoe UI';
+      ctx.textAlign  = 'center';
+      ctx.fillText(CHARS[gs.charIdx].name[0], cx, cy + 10);
+    }
+    ctx.restore();
+    // Neon ring
+    ctx.beginPath(); ctx.arc(cx, cy, cr + 3, 0, Math.PI*2);
+    ctx.strokeStyle = '#1dab62';
+    ctx.lineWidth   = 3;
+    ctx.shadowColor = '#1dab62';
+    ctx.shadowBlur  = 22;
+    ctx.stroke();
+    ctx.shadowBlur  = 0;
+    // Player name tag
+    ctx.font       = 'bold 12px Segoe UI';
+    ctx.textAlign  = 'center';
+    ctx.fillStyle  = '#1dab62';
+    ctx.shadowColor = '#1dab62';
+    ctx.shadowBlur  = 10;
+    ctx.fillText(CHARS[gs.charIdx].name, cx, player.y + player.h + 20);
+    ctx.shadowBlur = 0;
+
+    // Ground line
+    ctx.strokeStyle = 'rgba(29,171,98,.22)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(pAX, canvas.height - 20);
+    ctx.lineTo(pAX + pAW, canvas.height - 20);
+    ctx.stroke();
+
+    if (shaking) ctx.restore();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y,   x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x,   y+h, x, y+h-r);
+    ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x,   y,   x+r, y);
+    ctx.closePath();
+  }
+
+  function wrapText(ctx, text, x, midY, maxW) {
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+      else line = test;
+    }
+    lines.push(line);
+    const lh = 23;
+    // textBaseline = 'middle' → each fillText y is the vertical middle of that line
+    const startY = midY - (lines.length - 1) * lh / 2;
+    lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lh));
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  WIN / LOSE
+  // ═══════════════════════════════════════════════════════════
+  function winLevel() {
+    if (!gameRunning) return;
+    gameRunning = false;
+    clearInterval(timerId);
+    cancelAnimationFrame(animId);
+    document.getElementById('lw-boss-name').textContent = BOSSES[gs.level - 1].dative;
+    document.getElementById('lw-exclaim').textContent   =
+      gs.level === 1 ? 'PŘIPRAV SE NA BOSSE VÍTKA' : 'SKVĚLÁ PRÁCE!';
+    show('screen-level-win');
+  }
+
+  function continueAfterWin() {
+    if (gs.level === 1) {
+      gs.level = 2;
+      startLevel();
+    } else {
+      afterBothLevels();
+    }
+  }
+
+  // ── After completing BOTH levels ──────────────────────────
+  function afterBothLevels() {
+    const remaining = [0,1,2].filter(i => !gs.played.includes(i));
+
+    if (gs.rescued === 0) {
+      showRescue(
+        `<span class="hl">Unikl jsi z Fanlu!</span> Chceš zachránit i ostatní?`,
+        remaining
+      );
+    } else if (gs.rescued === 1) {
+      const saved = CHARS[gs.charIdx];
+      showRescue(
+        `Úspěšně jsi zachránil <span class="hl">${saved.acc}</span>!<br>Chceš zachránit ještě někoho?`,
+        remaining
+      );
+    } else {
+      showFinalWin();
+    }
+  }
+
+  function showRescue(msg, indices) {
+    document.getElementById('rescue-msg').innerHTML = msg;
+    const wrap = document.getElementById('rescue-chars');
+    wrap.innerHTML = '';
+    indices.forEach(idx => {
+      const ch   = CHARS[idx];
+      const card = document.createElement('div');
+      card.className = 'char-card';
+      card.innerHTML = `<img src="${ch.img}" alt="${ch.name}" class="char-img">
+                        <span class="char-name">${ch.name}</span>`;
+      card.onclick = () => doRescue(idx);
+      wrap.appendChild(card);
+    });
+    show('screen-rescue');
+  }
+
+  function doRescue(idx) {
+    gs.charIdx = idx;
+    gs.played.push(idx);
+    gs.rescued++;
+    gs.level = 1;
+    startLevel();
+  }
+
+  function showFinalWin() {
+    const wrap = document.getElementById('fw-chars');
+    wrap.innerHTML = '';
+    CHARS.forEach(ch => {
+      const d = document.createElement('div');
+      d.className = 'fw-char';
+      d.innerHTML = `<img src="${ch.img}" alt="${ch.name}"><span class="fw-name">${ch.name}</span>`;
+      wrap.appendChild(d);
+    });
+    show('screen-final-win');
+  }
+
+  function gameOver() {
+    if (!gameRunning) return;
+    gameRunning = false;
+    clearInterval(timerId);
+    cancelAnimationFrame(animId);
+    document.getElementById('game-over-overlay').classList.add('active');
+  }
+
+  function retryLevel() {
+    document.getElementById('game-over-overlay').classList.remove('active');
+    startLevel();
+  }
+
+  function restartGame() {
+    show('screen-intro');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  INPUT
+  // ═══════════════════════════════════════════════════════════
+  document.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+  });
+  document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  window.addEventListener('resize', () => {
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    player.y = canvas.height - player.h - 44;
+  });
+  </script>
+</body>
+</html>
